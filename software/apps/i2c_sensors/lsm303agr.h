@@ -9,14 +9,16 @@ static const uint8_t LSM303AGR_ACC_ADDRESS = 0x19;
 static const uint8_t LSM303AGR_MAG_ADDRESS = 0x1E;
 
 // Measurement data type
-typedef struct {
+typedef struct
+{
   float x_axis;
   float y_axis;
   float z_axis;
 } lsm303agr_measurement_t;
 
 // Register definitions for accelerometer
-typedef enum {
+typedef enum
+{
   STATUS_REG_AUX_A = 0x07,
   OUT_TEMP_L_A = 0x0C,
   OUT_TEMP_H_A = 0x0D,
@@ -58,7 +60,8 @@ typedef enum {
 } lsm303agr_acc_reg_t;
 
 // Register definitions for magnetometer
-typedef enum {
+typedef enum
+{
   OFFSET_X_REG_L_M = 0x45,
   OFFSET_X_REG_H_M = 0x46,
   OFFSET_Y_REG_L_M = 0x47,
@@ -87,7 +90,7 @@ typedef enum {
 // Initialize and configure the LSM303AGR accelerometer/magnetometer
 //
 // i2c - pointer to already initialized and enabled twim instance
-void lsm303agr_init(const nrf_twi_mngr_t* i2c);
+void lsm303agr_init(const nrf_twi_mngr_t *i2c);
 
 // Read the internal temperature sensor
 //
@@ -104,3 +107,4 @@ lsm303agr_measurement_t lsm303agr_read_accelerometer(void);
 // Return measurements as floating point values in uT
 lsm303agr_measurement_t lsm303agr_read_magnetometer(void);
 
+float get_tilt_from_acc(lsm303agr_measurement_t measurement_in);

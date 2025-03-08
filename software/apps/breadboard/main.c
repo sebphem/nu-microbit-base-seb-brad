@@ -7,7 +7,10 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "voltage_disp.h"
+
 #include "app_timer.h"
+#include "nordic_common.h"
 #include "nrf_delay.h"
 #include "nrfx_saadc.h"
 
@@ -20,6 +23,9 @@
 #define LED_GREEN EDGE_P14
 #define LED_BLUE  EDGE_P15
 
+
+#define TPS 32768
+
 // Digital inputs
 // Breakout pin 16
 // These are GPIO pin numbers that can be used in nrf_gpio_* calls
@@ -29,25 +35,33 @@
 // Breakout pins 1 and 2
 // These are GPIO pin numbers that can be used in ADC configurations
 // AIN1 is breakout pin 1. AIN2 is breakout pin 2.
-#define ANALOG_TEMP_IN  NRF_SAADC_INPUT_AIN1
-#define ANALOG_LIGHT_IN NRF_SAADC_INPUT_AIN2
+#define ANALOG_FSR_1_IN  NRF_SAADC_INPUT_AIN0
+#define ANALOG_FSR_2_IN  NRF_SAADC_INPUT_AIN1
 
 // ADC channel configurations
 // These are ADC channel numbers that can be used in ADC calls
-#define ADC_TEMP_CHANNEL  0
-#define ADC_LIGHT_CHANNEL 1
+#define ADC_FSR_1_CHANNEL 1
+#define ADC_FSR_2_CHANNEL 2
 
 // Global variables
-APP_TIMER_DEF(sample_timer);
+APP_TIMER_DEF(fsr_timer);
+APP_TIMER_DEF(drawStateTimer);
+APP_TIMER_DEF(updateLEDStateTimer);
 
 // Function prototypes
 static void gpio_init(void);
 static void adc_init(void);
 static float adc_sample_blocking(uint8_t channel);
 
-static void sample_timer_callback(void* _unused) {
-  // Do things periodically here
-  // TODO
+static void readVoltagesADC(void* _unused) {
+  // printf("wtf");
+
+  float voltage_1  = adc_sample_blocking(ADC_FSR_1_CHANNEL);
+  // printf("voltage_1: %f\n", voltage_1);
+  float voltage_2  = adc_sample_blocking(ADC_FSR_2_CHANNEL);
+  // printf("voltage_2: %f\n", voltage_2);
+  // updateVoltage(adc_sample_blocking(ADC_FSR_1_CHANNEL), adc_sample_blocking(ADC_FSR_2_CHANNEL));
+  updateVoltage(voltage_1, voltage_2);
 }
 
 static void saadc_event_callback(nrfx_saadc_evt_t const* _unused) {
@@ -59,11 +73,15 @@ static void gpio_init(void) {
   // Initialize output pins
   // TODO
 
+
+
   // Set LEDs off initially
   // TODO
 
   // Initialize input pin
   // TODO
+
+
 }
 
 static void adc_init(void) {
@@ -77,14 +95,14 @@ static void adc_init(void) {
   ret_code_t error_code = nrfx_saadc_init(&saadc_config, saadc_event_callback);
   APP_ERROR_CHECK(error_code);
 
-  // Initialize temperature sensor channel
-  nrf_saadc_channel_config_t temp_channel_config = NRFX_SAADC_DEFAULT_CHANNEL_CONFIG_SE(ANALOG_TEMP_IN);
-  error_code = nrfx_saadc_channel_init(ADC_TEMP_CHANNEL, &temp_channel_config);
+  // Initialize light sensor channel
+  nrf_saadc_channel_config_t fsr_channel_1_config = NRFX_SAADC_DEFAULT_CHANNEL_CONFIG_SE(ANALOG_FSR_1_IN);
+  error_code = nrfx_saadc_channel_init(ADC_FSR_1_CHANNEL, &fsr_channel_1_config);
   APP_ERROR_CHECK(error_code);
 
   // Initialize light sensor channel
-  nrf_saadc_channel_config_t light_channel_config = NRFX_SAADC_DEFAULT_CHANNEL_CONFIG_SE(ANALOG_LIGHT_IN);
-  error_code = nrfx_saadc_channel_init(ADC_LIGHT_CHANNEL, &light_channel_config);
+  nrf_saadc_channel_config_t fsr_channel_2_config = NRFX_SAADC_DEFAULT_CHANNEL_CONFIG_SE(ANALOG_FSR_2_IN);
+  error_code = nrfx_saadc_channel_init(ADC_FSR_2_CHANNEL, &fsr_channel_2_config);
   APP_ERROR_CHECK(error_code);
 }
 
@@ -99,8 +117,10 @@ static float adc_sample_blocking(uint8_t channel) {
   // 12-bit ADC with range from 0 to 3.6 Volts
   // TODO
 
+  float adc_voltage_float = MAX(((float)adc_counts) *(3.6/4095.0), 0.0);
+
   // return voltage measurement
-  return 0.0;
+  return adc_voltage_float;
 }
 
 
@@ -110,16 +130,18 @@ int main(void) {
   // initialize GPIO
   gpio_init();
 
+  led_matrix_init();
+
   // initialize ADC
   adc_init();
 
   // initialize app timers
   app_timer_init();
-  app_timer_create(&sample_timer, APP_TIMER_MODE_REPEATED, sample_timer_callback);
+  app_timer_create(&fsr_timer, APP_TIMER_MODE_REPEATED, readVoltagesADC);
+  app_timer_start(fsr_timer, TPS/10, NULL);
+  app_timer_create(&drawStateTimer, APP_TIMER_MODE_REPEATED, drawState);
+  app_timer_start(drawStateTimer, TPS/500, NULL);
 
-  // start timer
-  // change the rate to whatever you want
-  app_timer_start(sample_timer, 32768, NULL);
 
   // loop forever
   while (1) {
@@ -127,4 +149,3 @@ int main(void) {
     nrf_delay_ms(1000);
   }
 }
-
